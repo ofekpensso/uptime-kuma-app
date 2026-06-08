@@ -1,0 +1,111 @@
+# ==========================
+# Terraform
+# ==========================
+
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform variables
+*.auto.tfvars
+*.auto.tfvars.json
+terraform.tfvars
+terraform.tfvars.json
+
+# Terraform plans
+*.tfplan
+
+# ==========================
+# Kubernetes
+# ==========================
+
+kubeconfig
+*.kubeconfig
+
+# ==========================
+# Secrets
+# ==========================
+
+.env
+.env.*
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+
+secrets.yaml
+secret.yaml
+
+# ==========================
+# AWS
+# ==========================
+
+.aws/
+credentials
+config
+
+# ==========================
+# IDE
+# ==========================
+
+.vscode/
+.idea/
+
+# ==========================
+# OS
+# ==========================
+
+.DS_Store
+Thumbs.db
+
+# ==========================
+# Logs
+# ==========================
+
+logs/
+*.log
+
+# ==========================
+# Python
+# ==========================
+
+__pycache__/
+*.pyc
+
+# ==========================
+# Node
+# ==========================
+
+node_modules/
+
+# ==========================
+# Temporary
+# ==========================
+
+tmp/
+temp/
+
+# ==========================
+# ArgoCD
+# ==========================
+
+argocd-secret.yaml
+
+# ==========================
+# Helm local values
+# ==========================
+
+values-local.yaml
+values-dev-local.yaml
+
+# ==========================
+# SOPS
+# ==========================
+
+*.dec.yaml
