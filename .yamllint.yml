@@ -20,4 +20,3 @@ rules:
 ignore: |
   app/
   node_modules/
-
