@@ -47,8 +47,6 @@ secret.yaml
 # ==========================
 
 .aws/
-credentials
-config
 
 # ==========================
 # IDE
