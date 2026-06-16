@@ -1,0 +1,24 @@
+Uptime Kuma has been deployed.
+
+Release:
+  Name: {{ .Release.Name }}
+  Namespace: {{ .Release.Namespace }}
+
+Check the workload:
+  kubectl get pods -n {{ .Release.Namespace }} \
+    -l app.kubernetes.io/instance={{ .Release.Name }}
+
+Check the services:
+  kubectl get svc -n {{ .Release.Namespace }} \
+    -l app.kubernetes.io/instance={{ .Release.Name }}
+
+Check the persistent volume claim:
+  kubectl get pvc -n {{ .Release.Namespace }}
+
+Port-forward the application service:
+  kubectl port-forward -n {{ .Release.Namespace }} \
+    svc/{{ include "uptime-kuma.fullname" . }} \
+    {{ .Values.service.port }}:{{ .Values.service.port }}
+
+Open Uptime Kuma locally:
+  http://localhost:{{ .Values.service.port }}

@@ -107,3 +107,10 @@ values-dev-local.yaml
 # ==========================
 
 *.dec.yaml
+
+# =========================
+# Helm local values
+# =========================
+helm/uptime-kuma/values-dev.yaml
+helm/uptime-kuma/values-local.yaml
+helm/uptime-kuma/values-*.local.yaml

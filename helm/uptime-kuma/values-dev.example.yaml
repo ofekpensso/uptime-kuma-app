@@ -1,0 +1,20 @@
+---
+image:
+  repository: <aws-account-id>.dkr.ecr.<aws-region>.amazonaws.com/uptime-kuma
+  tag: sha-REPLACE_WITH_IMAGE_TAG
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+persistence:
+  enabled: true
+  storageClass: gp2
+  size: 5Gi
+
+service:
+  type: ClusterIP
+  port: 3001
+  targetPort: 3001
+
+ingress:
+  enabled: false

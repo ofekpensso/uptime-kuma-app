@@ -1,20 +1,18 @@
+{{- if .Values.headlessService.enabled -}}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "uptime-kuma.fullname" . }}
+  name: {{ include "uptime-kuma.fullname" . }}-headless
   labels:
     {{- include "uptime-kuma.labels" . | nindent 4 }}
-  {{- with .Values.service.annotations }}
-  annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
 spec:
-  type: {{ .Values.service.type }}
+  clusterIP: None
   ports:
     - name: http
-      port: {{ .Values.service.port }}
+      port: {{ .Values.headlessService.port }}
       targetPort: http
       protocol: TCP
   selector:
     {{- include "uptime-kuma.selectorLabels" . | nindent 4 }}
+{{- end }}
