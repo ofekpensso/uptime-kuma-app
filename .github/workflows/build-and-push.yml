@@ -22,7 +22,7 @@ env:
 
   IMAGE_TAG: sha-${{ github.sha }}
   DOCKERFILE_PATH: docker/Dockerfile
-  DOCKER_CONTEXT: .
+  DOCKER_BUILD_CONTEXT: .
   IMAGE_PLATFORM: linux/amd64
 
 jobs:
@@ -32,7 +32,7 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # -----------------------------
       # App dependency + lint checks
@@ -162,7 +162,7 @@ jobs:
         if: steps.image-check.outputs.exists != 'true'
         uses: docker/build-push-action@v7
         with:
-          context: ${{ env.DOCKER_CONTEXT }}
+          context: ${{ env.DOCKER_BUILD_CONTEXT }}
           file: ${{ env.DOCKERFILE_PATH }}
           platforms: ${{ env.IMAGE_PLATFORM }}
           tags: ${{ steps.image-metadata.outputs.image_uri }}
