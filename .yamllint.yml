@@ -1,0 +1,22 @@
+---
+extends: default
+
+rules:
+  line-length:
+    max: 140
+    level: warning
+
+  comments:
+    min-spaces-from-content: 1
+
+  truthy:
+    allowed-values:
+      - "true"
+      - "false"
+      - "on"
+      - "off"
+    check-keys: false
+
+ignore: |
+  app/
+  node_modules/

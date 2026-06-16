@@ -1,0 +1,186 @@
+name: Build and Push Image
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: build-and-push-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: us-east-1
+  AWS_ROLE_ARN: arn:aws:iam::478468080341:role/uptime-kuma-dev-github-actions-ecr-role
+  ECR_REPOSITORY: uptime-kuma
+
+  IMAGE_TAG: sha-${{ github.sha }}
+  DOCKERFILE_PATH: docker/Dockerfile
+  DOCKER_CONTEXT: .
+  IMAGE_PLATFORM: linux/amd64
+
+jobs:
+  validate:
+    name: Validate source, workflows, and Dockerfile
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # -----------------------------
+      # App dependency + lint checks
+      # -----------------------------
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install application dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Run application lint
+        working-directory: app
+        run: npm run lint:prod
+
+      # -----------------------------
+      # YAML validation
+      # -----------------------------
+      - name: Install yamllint
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install yamllint
+
+      - name: Validate YAML syntax and style
+        run: yamllint .github/workflows .yamllint.yml
+
+      # -----------------------------
+      # GitHub Actions workflow validation
+      # -----------------------------
+      - name: Validate GitHub Actions workflow syntax
+        uses: rhysd/actionlint@v1
+
+      # -----------------------------
+      # Dockerfile lint
+      # -----------------------------
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: docker/Dockerfile
+          config: .hadolint.yaml
+
+  build-scan-push:
+    name: Build, scan, and push image
+    runs-on: ubuntu-latest
+    needs: validate
+
+    outputs:
+      image-uri: ${{ steps.image-metadata.outputs.image_uri }}
+      image-tag: ${{ env.IMAGE_TAG }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # -----------------------------
+      # AWS authentication with OIDC
+      # -----------------------------
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # -----------------------------
+      # Image metadata
+      # -----------------------------
+      - name: Create image metadata
+        id: image-metadata
+        run: |
+          IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+
+          echo "image_uri=${IMAGE_URI}" >> "${GITHUB_OUTPUT}"
+
+          echo "Image URI: ${IMAGE_URI}"
+          echo "Image tag: ${IMAGE_TAG}"
+
+      # -----------------------------
+      # ECR immutable tag protection
+      # -----------------------------
+      - name: Check if image tag already exists in ECR
+        id: image-check
+        run: |
+          if aws ecr describe-images \
+            --region "${AWS_REGION}" \
+            --repository-name "${ECR_REPOSITORY}" \
+            --image-ids imageTag="${IMAGE_TAG}" >/dev/null 2>&1; then
+            echo "exists=true" >> "${GITHUB_OUTPUT}"
+            echo "Image tag already exists in ECR: ${IMAGE_TAG}"
+          else
+            echo "exists=false" >> "${GITHUB_OUTPUT}"
+            echo "Image tag does not exist yet: ${IMAGE_TAG}"
+          fi
+
+      - name: Skip build because image already exists
+        if: steps.image-check.outputs.exists == 'true'
+        run: |
+          echo "Skipping build and push because immutable image tag already exists:"
+          echo "${{ steps.image-metadata.outputs.image_uri }}"
+
+      # -----------------------------
+      # Docker build
+      # -----------------------------
+      - name: Set up Docker Buildx
+        if: steps.image-check.outputs.exists != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image locally
+        if: steps.image-check.outputs.exists != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.DOCKER_CONTEXT }}
+          file: ${{ env.DOCKERFILE_PATH }}
+          platforms: ${{ env.IMAGE_PLATFORM }}
+          tags: ${{ steps.image-metadata.outputs.image_uri }}
+          load: true
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # -----------------------------
+      # Security scan before push
+      # -----------------------------
+      - name: Scan Docker image with Trivy
+        if: steps.image-check.outputs.exists != 'true'
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: ${{ steps.image-metadata.outputs.image_uri }}
+          format: table
+          exit-code: 1
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL
+
+      # -----------------------------
+      # Push only after validation + scan
+      # -----------------------------
+      - name: Push Docker image to ECR
+        if: steps.image-check.outputs.exists != 'true'
+        run: docker push "${{ steps.image-metadata.outputs.image_uri }}"
+
+      - name: Print published image
+        run: |
+          echo "Image available at:"
+          echo "${{ steps.image-metadata.outputs.image_uri }}"

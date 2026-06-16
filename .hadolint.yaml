@@ -1,0 +1,11 @@
+---
+failure-threshold: warning
+
+ignored:
+  # We intentionally use upstream Uptime Kuma base images.
+  # Pinning by digest can be added later for stricter supply-chain control.
+  - DL3006
+
+  # Uptime Kuma upstream Docker pattern uses npm commands.
+  # We keep the Dockerfile aligned with upstream behavior.
+  - DL3016
