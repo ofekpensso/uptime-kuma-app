@@ -66,8 +66,13 @@ jobs:
       # -----------------------------
       # GitHub Actions workflow validation
       # -----------------------------
+      - name: Install actionlint
+        run: |
+          curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash
+          sudo mv actionlint /usr/local/bin/actionlint
+
       - name: Validate GitHub Actions workflow syntax
-        uses: reviewdog/action-actionlint@v1
+        run: actionlint
 
       # -----------------------------
       # Dockerfile lint
