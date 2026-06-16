@@ -77,11 +77,17 @@ jobs:
       # -----------------------------
       # Dockerfile lint
       # -----------------------------
+      - name: Install Hadolint
+        run: |
+          HADOLINT_VERSION="v2.14.0"
+          curl -sSL \
+            -o hadolint \
+             "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64"
+          sudo install -m 0755 hadolint /usr/local/bin/hadolint
+          hadolint --version
+
       - name: Lint Dockerfile
-        uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: docker/Dockerfile
-          config: .hadolint.yaml
+        run: hadolint --config .hadolint.yaml docker/Dockerfile
 
   build-scan-push:
     name: Build, scan, and push image
