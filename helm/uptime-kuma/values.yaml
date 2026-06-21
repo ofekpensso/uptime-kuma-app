@@ -43,6 +43,11 @@ persistence:
   size: 5Gi
   mountPath: /app/data
 
+  retentionPolicy:
+    enabled: true
+    whenDeleted: Retain
+    whenScaled: Retain
+
 probes:
   startup:
     enabled: true

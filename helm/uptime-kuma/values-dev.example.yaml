@@ -11,6 +11,11 @@ persistence:
   storageClass: gp2
   size: 5Gi
 
+  retentionPolicy:
+    enabled: true
+    whenDeleted: Delete
+    whenScaled: Retain
+
 service:
   type: ClusterIP
   port: 3001

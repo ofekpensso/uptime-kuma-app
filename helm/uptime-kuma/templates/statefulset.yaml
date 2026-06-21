@@ -8,6 +8,11 @@ metadata:
 spec:
   replicas: {{ .Values.replicaCount }}
   serviceName: {{ include "uptime-kuma.fullname" . }}{{ ternary "-headless" "" .Values.headlessService.enabled }}
+{{ if and .Values.persistence.enabled (not .Values.persistence.existingClaim) .Values.persistence.retentionPolicy.enabled }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: {{ .Values.persistence.retentionPolicy.whenDeleted | quote }}
+    whenScaled: {{ .Values.persistence.retentionPolicy.whenScaled | quote }}
+{{ end }}  
   selector:
     matchLabels:
       {{- include "uptime-kuma.selectorLabels" . | nindent 6 }}
