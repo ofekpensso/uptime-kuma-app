@@ -27,7 +27,7 @@ env:
 
 jobs:
   validate:
-    name: Validate source, workflows, and Dockerfile
+    name: Validate source, workflows, Helm, and Dockerfile
     runs-on: ubuntu-latest
 
     steps:
@@ -70,6 +70,29 @@ jobs:
         uses: reviewdog/action-actionlint@v1
 
       # -----------------------------
+      # Helm chart validation
+      # -----------------------------
+      - name: Install Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.19.0
+
+      - name: Validate Helm chart
+        run: |
+          helm lint helm/uptime-kuma \
+            --strict \
+            --values helm/uptime-kuma/values-dev.example.yaml \
+            --set-string image.repository=example.invalid/uptime-kuma \
+            --set-string image.tag=sha-ci-validation
+
+          helm template uptime-kuma helm/uptime-kuma \
+            --namespace uptime-kuma \
+            --values helm/uptime-kuma/values-dev.example.yaml \
+            --set-string image.repository=example.invalid/uptime-kuma \
+            --set-string image.tag=sha-ci-validation \
+            > /dev/null
+
+      # -----------------------------
       # Dockerfile lint
       # -----------------------------
       - name: Lint Dockerfile
@@ -77,6 +100,7 @@ jobs:
         with:
           dockerfile: docker/Dockerfile
           config: .hadolint.yaml
+
 
   build-scan-push:
     name: Build, scan, and push image
@@ -186,3 +210,6 @@ jobs:
         run: |
           echo "Image available at:"
           echo "${{ steps.image-metadata.outputs.image_uri }}"
+
+
+
