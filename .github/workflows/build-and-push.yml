@@ -210,4 +210,4 @@ jobs:
         run: |
           echo "Image available at:"
           echo "${{ steps.image-metadata.outputs.image_uri }}"
-          
+
