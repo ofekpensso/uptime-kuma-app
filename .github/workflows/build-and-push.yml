@@ -337,33 +337,53 @@ jobs:
           git diff --check
           git diff -- "${PLATFORM_VALUES_FILE}"
 
-          UPDATED_TAG=$(
-            awk '
-              /^image:$/ {
-                in_image = 1
-                next
-              }
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
 
-              in_image && /^[^[:space:]]/ {
-                in_image = 0
-              }
+          values_path = Path(os.environ["PLATFORM_VALUES_FILE"])
+          expected_tag = os.environ["IMAGE_TAG"]
 
-              in_image && /^[[:space:]]+tag:/ {
-                sub(
-                  /^[[:space:]]+tag:[[:space:]]*/,
-                  ""
-                )
-                print
-                exit
-              }
-            ' "${PLATFORM_VALUES_FILE}"
+          lines = values_path.read_text(
+              encoding="utf-8"
+          ).splitlines()
+
+          inside_image_block = False
+          actual_tag = None
+
+          for line in lines:
+              stripped = line.strip()
+
+              if line == "image:":
+                  inside_image_block = True
+                  continue
+
+              if inside_image_block:
+                  if stripped and not line.startswith(" "):
+                      break
+
+                  if stripped.startswith("tag:"):
+                      actual_tag = stripped.split(
+                          ":",
+                          1,
+                      )[1].strip().strip("\"'")
+                      break
+
+          if actual_tag is None:
+              raise SystemExit(
+                  "image.tag was not found in the values file"
+              )
+
+          if actual_tag != expected_tag:
+              raise SystemExit(
+                  f"Expected tag: {expected_tag}\n"
+                  f"Actual tag:   {actual_tag}"
+              )
+
+          print(
+              f"Validated image tag: {actual_tag}"
           )
-
-          if [[ "${UPDATED_TAG}" != "${IMAGE_TAG}" ]]; then
-            echo "Expected tag: ${IMAGE_TAG}"
-            echo "Actual tag:   ${UPDATED_TAG}"
-            exit 1
-          fi
+          PY
 
       - name: Commit and push directly to main
         working-directory: platform
