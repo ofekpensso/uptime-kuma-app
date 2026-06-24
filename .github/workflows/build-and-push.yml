@@ -213,18 +213,18 @@ jobs:
 
 
   promote-to-dev:
-    name: Promote image to dev
+    name: Promote image directly to dev
     runs-on: ubuntu-latest
     needs: build-scan-push
 
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main'
 
     env:
       PLATFORM_REPOSITORY: ofekpensso/uptime-kuma-platform
       PLATFORM_VALUES_FILE: gitops/values/uptime-kuma/dev.yaml
-      PROMOTION_BRANCH: automation/promote-uptime-kuma-dev
       IMAGE_TAG: ${{ needs.build-scan-push.outputs.image-tag }}
-      IMAGE_URI: ${{ needs.build-scan-push.outputs.image-uri }}
 
     steps:
       - name: Checkout platform repository
@@ -260,9 +260,9 @@ jobs:
                   f"Values file does not exist: {values_path}"
               )
 
-          lines = values_path.read_text(encoding="utf-8").splitlines(
-              keepends=True
-          )
+          lines = values_path.read_text(
+              encoding="utf-8"
+          ).splitlines(keepends=True)
 
           image_block_found = False
           tag_updated = False
@@ -273,7 +273,9 @@ jobs:
 
               if not image_block_found:
                   if stripped == "image:":
-                      image_indent = len(line) - len(line.lstrip(" "))
+                      image_indent = len(line) - len(
+                          line.lstrip(" ")
+                      )
 
                       if image_indent != 0:
                           continue
@@ -285,17 +287,22 @@ jobs:
               if not stripped or stripped.startswith("#"):
                   continue
 
-              current_indent = len(line) - len(line.lstrip(" "))
+              current_indent = len(line) - len(
+                  line.lstrip(" ")
+              )
 
               if current_indent <= image_indent:
                   break
 
               if stripped.startswith("tag:"):
                   indentation = line[:current_indent]
-                  line_ending = "\n" if line.endswith("\n") else ""
+                  line_ending = (
+                      "\n" if line.endswith("\n") else ""
+                  )
 
                   lines[index] = (
-                      f"{indentation}tag: {image_tag}{line_ending}"
+                      f"{indentation}tag: "
+                      f"{image_tag}{line_ending}"
                   )
 
                   tag_updated = True
@@ -308,7 +315,7 @@ jobs:
 
           if not tag_updated:
               raise SystemExit(
-                  "image.tag was not found inside the image block"
+                  "image.tag was not found inside image block"
               )
 
           values_path.write_text(
@@ -317,7 +324,7 @@ jobs:
           )
 
           print(
-              f"Updated {values_path} to image tag {image_tag}"
+              f"Updated {values_path} to {image_tag}"
           )
           PY
 
@@ -342,7 +349,10 @@ jobs:
               }
 
               in_image && /^[[:space:]]+tag:/ {
-                sub(/^[[:space:]]+tag:[[:space:]]*/, "")
+                sub(
+                  /^[[:space:]]+tag:[[:space:]]*/,
+                  ""
+                )
                 print
                 exit
               }
@@ -355,39 +365,37 @@ jobs:
             exit 1
           fi
 
-      - name: Create or update promotion pull request
-        id: promotion-pr
-        uses: peter-evans/create-pull-request@v8
-        with:
-          token: ${{ secrets.PLATFORM_REPO_TOKEN }}
-          path: platform
-          base: main
-          branch: ${{ env.PROMOTION_BRANCH }}
-          delete-branch: true
-
-          add-paths: |
-            gitops/values/uptime-kuma/dev.yaml
-
-          commit-message: >-
-            chore(dev): promote Uptime Kuma ${{ env.IMAGE_TAG }}
-
-          title: >-
-            chore(dev): promote Uptime Kuma to ${{ env.IMAGE_TAG }}
-
-          body: |
-            Automated promotion of a new Uptime Kuma image to dev.
-
-            - Source repository: `${{ github.repository }}`
-            - Source commit: `${{ github.sha }}`
-            - Image: `${{ env.IMAGE_URI }}`
-            - Environment: `dev`
-
-            Merging this pull request updates the GitOps desired state.
-            Argo CD will then deploy the new immutable image.
-
-      - name: Print promotion result
-        if: steps.promotion-pr.outputs.pull-request-number != ''
+      - name: Commit and push directly to main
+        working-directory: platform
         shell: bash
         run: |
-          echo "Promotion pull request:"
-          echo "${{ steps.promotion-pr.outputs.pull-request-url }}"
+          set -euo pipefail
+
+          if git diff --quiet -- "${PLATFORM_VALUES_FILE}"; then
+            echo "Platform repository already uses ${IMAGE_TAG}"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add "${PLATFORM_VALUES_FILE}"
+
+          git commit \
+            -m "chore(dev): promote Uptime Kuma ${IMAGE_TAG}"
+
+          # Do not force-push. If main changed while this job was
+          # running, rebase the promotion commit on the latest main.
+          git pull --rebase origin main
+
+          git push origin HEAD:main
+
+      - name: Print promotion result
+        shell: bash
+        run: |
+          echo "Promoted Uptime Kuma to dev:"
+          echo "${IMAGE_TAG}"
+          echo
+          echo "Platform repository:"
+          echo "${PLATFORM_REPOSITORY}"
