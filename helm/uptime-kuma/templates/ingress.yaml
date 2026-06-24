@@ -1,9 +1,10 @@
-{{- if .Values.ingress.enabled -}}
+{{- if .Values.ingress.enabled }}
+{{- $fullName := include "uptime-kuma.fullname" . }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "uptime-kuma.fullname" . }}
+  name: {{ $fullName }}
   labels:
     {{- include "uptime-kuma.labels" . | nindent 4 }}
   {{- with .Values.ingress.annotations }}
@@ -11,26 +12,30 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- if .Values.ingress.className }}
-  ingressClassName: {{ .Values.ingress.className | quote }}
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
   {{- end }}
-  {{- if .Values.ingress.tls }}
+
+  {{- with .Values.ingress.tls }}
   tls:
-    {{- toYaml .Values.ingress.tls | nindent 4 }}
+    {{- toYaml . | nindent 4 }}
   {{- end }}
+
   rules:
     {{- range .Values.ingress.hosts }}
-    - host: {{ .host | quote }}
-      http:
+    - http:
         paths:
           {{- range .paths }}
-          - path: {{ .path }}
+          - path: {{ .path | quote }}
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ include "uptime-kuma.fullname" $ }}
+                name: {{ $fullName }}
                 port:
-                  number: {{ $.Values.service.port }}
+                  name: http
           {{- end }}
+      {{ if .host }}
+      host: {{ .host | quote }}
+      {{ end }}
     {{- end }}
 {{- end }}
