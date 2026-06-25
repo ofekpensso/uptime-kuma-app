@@ -218,8 +218,9 @@ jobs:
     needs: build-scan-push
 
     if: >-
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/main'
+      (github.event_name == 'push' &&
+       github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_dispatch'
 
     env:
       PLATFORM_REPOSITORY: ofekpensso/uptime-kuma-platform
