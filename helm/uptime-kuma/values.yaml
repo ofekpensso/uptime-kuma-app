@@ -29,6 +29,7 @@ service:
   port: 3001
   targetPort: 3001
   annotations: {}
+  extraLabels: {}
 
 headlessService:
   enabled: true
